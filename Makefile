@@ -1,3 +1,12 @@
-wander:
+CARGS = -Os -Wall -Werror -Isrc -isystem C:\raylib\src -DPLATFORM_WEB
+LINKARGS = -s USE_GLFW=3 -LC:\raylib\src\libraylib.a
+
+info:
+	echo "Common targets: wander, clean"
+
+build/%.o: src/%.c src/*.h
 	if not exist build mkdir build
-	emcc -o build\wander_demo.html src\wander_main.c -Os -Wall C:\raylib\src\libraylib.a -Isrc -isystem C:\raylib\src -L. -LC:\raylib\src\libraylib.a -s USE_GLFW=3 --shell-file C:\emsdk\upstream\emscripten\src\shell.html -DPLATFORM_WEB
+	emcc $(CARGS) -c $< -o $@
+
+wander: build/*.o
+	emcc $(CARGS) $(LINKARGS) $? C:\raylib\src\libraylib.a --shell-file C:\emsdk\upstream\emscripten\src\shell.html  -o build\wander_demo.html
