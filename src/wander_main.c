@@ -5,13 +5,14 @@
 #include <stdio.h>
 
 #include "noise.h"
-
+#include "tilegen.h"
 
 const int kWidth = 800;
 const int kHeight = 600;
 
 Camera gCamera = { 0 };
 Texture2D texture = { 0 };
+struct TileChunk gChunk = { 0 };
 
 void draw_centered_grid(Vector3 pos) {
 	static const int kCount = 5;
@@ -59,6 +60,31 @@ void draw_color_splotches(Vector3 pos) {
 	}
 }
 
+void draw_chunk() {
+	for (int row = 0; row <= TILE_CHUNK_SIZE; row++) {
+		for (int col = 0; col <= TILE_CHUNK_SIZE; col++) {
+			Vector3 center = {row - 50, 0, col - 50};
+			
+			Color color = PINK;
+			switch (chunk_get(&gChunk, row, col)) {
+				case WATER:
+					color = BLUE;
+					break;
+				case SAND:
+					color = YELLOW;
+					break;
+				case GRASS:
+					color = GREEN;
+					break;
+				default:
+					break;
+			}
+			
+			DrawCube(center, 1, 1, 1, color);
+		}
+	}
+}
+
 void loop(void)
 {
 	if (IsKeyDown(KEY_RIGHT)) {
@@ -85,23 +111,24 @@ void loop(void)
 		
 			BeginMode3D(gCamera);
 			
-				DrawCube((Vector3){-4.0f, 0.0f, 2.0f}, 2.0f, 5.0f, 2.0f, RED);
-				DrawCubeWires((Vector3){-4.0f, 0.0f, 2.0f}, 2.0f, 5.0f, 2.0f, GOLD);
-				DrawCubeWires((Vector3){-4.0f, 0.0f, -2.0f}, 3.0f, 6.0f, 2.0f, MAROON);
+				// DrawCube((Vector3){-4.0f, 0.0f, 2.0f}, 2.0f, 5.0f, 2.0f, RED);
+				// DrawCubeWires((Vector3){-4.0f, 0.0f, 2.0f}, 2.0f, 5.0f, 2.0f, GOLD);
+				// DrawCubeWires((Vector3){-4.0f, 0.0f, -2.0f}, 3.0f, 6.0f, 2.0f, MAROON);
 
-				DrawSphere((Vector3){-1.0f, 0.0f, -2.0f}, 1.0f, GREEN);
-				DrawSphereWires((Vector3){1.0f, 0.0f, 2.0f}, 2.0f, 16, 16, LIME);
+				// DrawSphere((Vector3){-1.0f, 0.0f, -2.0f}, 1.0f, GREEN);
+				// DrawSphereWires((Vector3){1.0f, 0.0f, 2.0f}, 2.0f, 16, 16, LIME);
 
-				DrawCylinder((Vector3){4.0f, 0.0f, -2.0f}, 1.0f, 2.0f, 3.0f, 4, SKYBLUE);
-				DrawCylinderWires((Vector3){4.0f, 0.0f, -2.0f}, 1.0f, 2.0f, 3.0f, 4, DARKBLUE);
-				DrawCylinderWires((Vector3){4.5f, -1.0f, 2.0f}, 1.0f, 1.0f, 2.0f, 6, BROWN);
+				// DrawCylinder((Vector3){4.0f, 0.0f, -2.0f}, 1.0f, 2.0f, 3.0f, 4, SKYBLUE);
+				// DrawCylinderWires((Vector3){4.0f, 0.0f, -2.0f}, 1.0f, 2.0f, 3.0f, 4, DARKBLUE);
+				// DrawCylinderWires((Vector3){4.5f, -1.0f, 2.0f}, 1.0f, 1.0f, 2.0f, 6, BROWN);
 
-				DrawCylinder((Vector3){1.0f, 0.0f, -4.0f}, 0.0f, 1.5f, 3.0f, 8, GOLD);
-				DrawCylinderWires((Vector3){1.0f, 0.0f, -4.0f}, 0.0f, 1.5f, 3.0f, 8, PINK);
+				// DrawCylinder((Vector3){1.0f, 0.0f, -4.0f}, 0.0f, 1.5f, 3.0f, 8, GOLD);
+				// DrawCylinderWires((Vector3){1.0f, 0.0f, -4.0f}, 0.0f, 1.5f, 3.0f, 8, PINK);
 				
 				
-				draw_centered_grid(gCamera.target);
-				draw_color_splotches(gCamera.target);
+				// draw_centered_grid(gCamera.target);
+				// draw_color_splotches(gCamera.target);
+				draw_chunk();
 			
 			EndMode3D();
 		
@@ -113,6 +140,7 @@ void loop(void)
 void load(void) {
 	Image cellular = GenImageCellular(kWidth, kHeight, 60);
 	texture = LoadTextureFromImage(cellular);
+	chunk_generate(&gChunk, 0);
 	
 	gCamera.position = (Vector3){ 0.0f, 15.0f, 4.0f };
     gCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
@@ -123,11 +151,6 @@ void load(void) {
 
 int main(int argc, char** argv)
 {
-	
-	double n = noise(1,0);
-	printf("Noise val: %f\n", n);
-	
-	
     InitWindow(kWidth, kHeight, "wander demo");
 	load();
 	SetTargetFPS(60);

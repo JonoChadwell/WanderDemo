@@ -1,6 +1,6 @@
 CARGS = -Os -Wall -Werror -Isrc -isystem C:\raylib\src -DPLATFORM_WEB
 LINKARGS = -s USE_GLFW=3 -LC:\raylib\src\libraylib.a
-SRCFILES = noise wander_main
+SRCFILES = noise wander_main tilegen
 
 info:
 	@echo Common targets: wander, clean
