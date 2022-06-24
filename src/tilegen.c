@@ -3,15 +3,45 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-enum Tile kBlockNone[] = { TILE_NULL };
-enum Tile kBlockGrass[] = { GRASS, TILE_NULL };
-enum Tile kBlockWater[] = { WATER, TILE_NULL };
+// #include <stdio.h>
 
-enum Tile *kBlockedTransitionMap[TILE_COUNT] = {
-	[TILE_NULL] = kBlockNone,
-	[WATER] = kBlockGrass,
-	[SAND] = kBlockNone,
-	[GRASS] = kBlockWater,
+int kTileWeightMatrix[TILE_COUNT][TILE_COUNT] = {
+	[TILE_NULL] = {
+		[DEEP] = 1,
+		[WATER] = 1,
+		[SAND] = 1,
+		[GRASS] = 1,
+		[TREE] = 1,
+		[HILL] = 1,
+	},
+	[DEEP] = {
+		[DEEP] = 2,
+		[WATER] = 1,
+	},
+	[WATER] = {
+		[DEEP] = 1,
+		[WATER] = 1,
+		[SAND] = 1,
+	},
+	[SAND] = {
+		[WATER] = 1,
+		[SAND] = 1,
+		[GRASS] = 1,
+	},
+	[GRASS] = {
+		[SAND] = 1,
+		[GRASS] = 3,
+		[TREE] = 1,
+		[HILL] = 1,
+	},
+	[TREE] = {
+		[TREE] = 1,
+		[GRASS] = 1,
+	},
+	[HILL] = {
+		[HILL] = 3,
+		[GRASS] = 1,
+	},
 };
 
 enum Tile chunk_get(struct TileChunk* chunk, int row, int col) {
@@ -30,30 +60,49 @@ void chunk_clear(struct TileChunk* chunk) {
 	}
 }
 
-static void tile_apply_blocks(bool blocked[static TILE_COUNT], enum Tile adjacent) {
-	enum Tile *blocks = kBlockedTransitionMap[adjacent];
-	while (*blocks != TILE_NULL) {
-		blocked[*blocks] = true;
-		++blocks;
+static void tile_apply_adjacency(int options[static TILE_COUNT], enum Tile adjacent) {
+	for (int i = 0; i < TILE_COUNT; i++) {
+		options[i] *= kTileWeightMatrix[adjacent][i];
 	}
 }
 
-static void tile_generate(struct TileChunk* chunk, int row, int col) {
-	bool blocked[TILE_COUNT] = { false };
-	blocked[TILE_NULL] = true;
-	tile_apply_blocks(blocked, chunk_get(chunk, row + 1, col));
-	tile_apply_blocks(blocked, chunk_get(chunk, row - 1, col));
-	tile_apply_blocks(blocked, chunk_get(chunk, row, col + 1));
-	tile_apply_blocks(blocked, chunk_get(chunk, row, col - 1));
-	
-	enum Tile unblocked[TILE_COUNT] = { TILE_NULL };
-	int count = 0;
+static int tile_option_sum(int options[static TILE_COUNT]) {
+	int sum = 0;
 	for (int i = 0; i < TILE_COUNT; i++) {
-		if (!blocked[i]) {
-			unblocked[count++] = (enum Tile) i;
-		}
+		sum += options[i];
 	}
-	chunk->data[row * TILE_CHUNK_SIZE + col] = unblocked[rand() % count];
+	return sum;
+}
+
+enum Tile tile_option_select(int options[static TILE_COUNT], int selection) {
+	for (int i = 0; i < TILE_COUNT; i++) {
+		if (selection < options[i]) {
+			return (enum Tile) i;
+		}
+		selection -= options[i];
+	}
+	return TILE_NULL;
+}
+
+static void tile_generate(struct TileChunk* chunk, int row, int col) {
+	int options[TILE_COUNT] = {
+		[DEEP] = 1,
+		[WATER] = 1,
+		[SAND] = 1,
+		[GRASS] = 1,
+		[TREE] = 1,
+		[HILL] = 1,
+	};
+	tile_apply_adjacency(options, chunk_get(chunk, row + 1, col));
+	tile_apply_adjacency(options, chunk_get(chunk, row - 1, col));
+	tile_apply_adjacency(options, chunk_get(chunk, row, col + 1));
+	tile_apply_adjacency(options, chunk_get(chunk, row, col - 1));
+	
+	int sum = tile_option_sum(options);
+	int selection = sum == 0 ? 0 : rand() % sum;
+	
+	// printf("Options: %d, selection %d\n", sum, selection);
+	chunk->data[row * TILE_CHUNK_SIZE + col] = tile_option_select(options, selection);
 }
 
 void chunk_generate(struct TileChunk* chunk, int seed) {

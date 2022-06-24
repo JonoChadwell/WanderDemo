@@ -60,48 +60,73 @@ void draw_color_splotches(Vector3 pos) {
 	}
 }
 
+void draw_outlined_cube(Vector3 center, float w, float h, float l, Color color) {
+	DrawCube(center, w, h, l, color);
+	Vector3 nw = {center.x - w / 2, center.y + h / 2 + .01, center.z - l / 2};
+	Vector3 ne = {center.x - w / 2, center.y + h / 2 + .01, center.z + l / 2};
+	Vector3 sw = {center.x + w / 2, center.y + h / 2 + .01, center.z - l / 2};
+	Vector3 se = {center.x + w / 2, center.y + h / 2 + .01, center.z + l / 2};
+	DrawLine3D(nw, ne, BLACK);
+	DrawLine3D(ne, se, BLACK);
+	DrawLine3D(se, sw, BLACK);
+	DrawLine3D(sw, nw, BLACK);
+}
+
 void draw_chunk() {
 	for (int row = 0; row <= TILE_CHUNK_SIZE; row++) {
 		for (int col = 0; col <= TILE_CHUNK_SIZE; col++) {
 			Vector3 center = {row - 50, 0, col - 50};
 			
-			Color color = PINK;
 			switch (chunk_get(&gChunk, row, col)) {
+				case DEEP:
+					draw_outlined_cube(center, 1, 1, 1, DARKBLUE);
+					break;
 				case WATER:
-					color = BLUE;
+					draw_outlined_cube(center, 1, 1, 1, BLUE);
 					break;
 				case SAND:
-					color = YELLOW;
+					draw_outlined_cube(center, 1, 1.5, 1, BEIGE);
 					break;
 				case GRASS:
-					color = GREEN;
+					draw_outlined_cube(center, 1, 2, 1, GREEN);
+					break;
+				case TREE:
+					draw_outlined_cube(center, 1, 1.3, 1, GREEN);
+					DrawCylinder(center, 0.1, 0.5, 5, 6, DARKGREEN);
+					break;
+				case HILL:
+					draw_outlined_cube(center, 1, 4, 1, BROWN);
+					break;
+				case TILE_NULL:
+					draw_outlined_cube(center, 0.5, 0.5, 0.5, MAGENTA);
 					break;
 				default:
 					break;
 			}
 			
-			DrawCube(center, 1, 1, 1, color);
+			
 		}
 	}
 }
 
 void loop(void)
 {
+	const float kSpeed = 0.20f;
 	if (IsKeyDown(KEY_RIGHT)) {
-		gCamera.position.x += 0.03f;
-		gCamera.target.x += 0.03f;
+		gCamera.position.x += kSpeed;
+		gCamera.target.x += kSpeed;
 	}
 	if (IsKeyDown(KEY_LEFT)) {
-		gCamera.position.x -= 0.03f;
-		gCamera.target.x -= 0.03f;
+		gCamera.position.x -= kSpeed;
+		gCamera.target.x -= kSpeed;
 	}
 	if (IsKeyDown(KEY_UP)) {
-		gCamera.position.z -= 0.03f;
-		gCamera.target.z -= 0.03f;
+		gCamera.position.z -= kSpeed;
+		gCamera.target.z -= kSpeed;
 	}
 	if (IsKeyDown(KEY_DOWN)) {
-		gCamera.position.z += 0.03f;
-		gCamera.target.z += 0.03f;
+		gCamera.position.z += kSpeed;
+		gCamera.target.z += kSpeed;
 	}
 
     BeginDrawing();
@@ -142,7 +167,7 @@ void load(void) {
 	texture = LoadTextureFromImage(cellular);
 	chunk_generate(&gChunk, 0);
 	
-	gCamera.position = (Vector3){ 0.0f, 15.0f, 4.0f };
+	gCamera.position = (Vector3){ 0.0f, 25.0f, 10.0f };
     gCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
     gCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     gCamera.fovy = 45.0f;

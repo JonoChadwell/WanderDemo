@@ -4,9 +4,12 @@
 
 enum Tile {
 	TILE_NULL = 0,
+	DEEP,
 	WATER,
 	SAND,
 	GRASS,
+	TREE,
+	HILL,
 	TILE_COUNT,
 };
 
