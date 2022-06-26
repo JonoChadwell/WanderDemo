@@ -77,7 +77,7 @@ void draw_outlined_cube(Vector3 center, float w, float h, float l, Color color) 
 void draw_chunk() {
 	for (int row = 0; row < TILE_CHUNK_SIZE; row++) {
 		for (int col = 0; col < TILE_CHUNK_SIZE; col++) {
-			Vector3 center = {row - 16, 0, col - 16};
+			Vector3 center = {col - 16, 0, row - 16};
 			
 			switch (chunk_get(&gChunk, row, col)) {
 				case DEEP:
@@ -130,6 +130,27 @@ void loop(void)
 		gCamera.position.z += kSpeed;
 		gCamera.target.z += kSpeed;
 	}
+	if (IsKeyPressed(KEY_W)) {
+		struct TileChunk nc;
+		chunk_north(&gChunk, &nc);
+		gChunk = nc;
+	}
+	if (IsKeyPressed(KEY_A)) {
+		struct TileChunk nc;
+		chunk_west(&gChunk, &nc);
+		gChunk = nc;
+	}
+	if (IsKeyPressed(KEY_S)) {
+		struct TileChunk nc;
+		chunk_south(&gChunk, &nc);
+		gChunk = nc;
+	}
+	if (IsKeyPressed(KEY_D)) {
+		struct TileChunk nc;
+		chunk_east(&gChunk, &nc);
+		gChunk = nc;
+	}
+	
 
     BeginDrawing();
 	
@@ -169,15 +190,14 @@ void load(void) {
 	gTexture = LoadTextureFromImage(cellular);
 	chunk_generate_root(&gChunk);
 
-	gCamera.position = (Vector3){ 0.0f, 25.0f, 10.0f };
+	gCamera.position = (Vector3){ 0.0f, 45.0f, 10.0f };
     gCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
     gCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     gCamera.fovy = 45.0f;
     gCamera.projection = CAMERA_PERSPECTIVE;
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     InitWindow(kWidth, kHeight, "wander demo");
 	load();
 	SetTargetFPS(60);
