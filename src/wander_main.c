@@ -2,16 +2,18 @@
 #include <emscripten/emscripten.h>
 
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "noise.h"
 #include "tilegen.h"
 
+
 const int kWidth = 800;
 const int kHeight = 600;
 
 Camera gCamera = { 0 };
-Texture2D texture = { 0 };
+Texture2D gTexture = { 0 };
 struct TileChunk gChunk = { 0 };
 
 void draw_centered_grid(Vector3 pos) {
@@ -73,9 +75,9 @@ void draw_outlined_cube(Vector3 center, float w, float h, float l, Color color) 
 }
 
 void draw_chunk() {
-	for (int row = 0; row <= TILE_CHUNK_SIZE; row++) {
-		for (int col = 0; col <= TILE_CHUNK_SIZE; col++) {
-			Vector3 center = {row - 50, 0, col - 50};
+	for (int row = 0; row < TILE_CHUNK_SIZE; row++) {
+		for (int col = 0; col < TILE_CHUNK_SIZE; col++) {
+			Vector3 center = {row - 16, 0, col - 16};
 			
 			switch (chunk_get(&gChunk, row, col)) {
 				case DEEP:
@@ -91,7 +93,7 @@ void draw_chunk() {
 					draw_outlined_cube(center, 1, 2, 1, GREEN);
 					break;
 				case TREE:
-					draw_outlined_cube(center, 1, 1.3, 1, GREEN);
+					draw_outlined_cube(center, 1, 2, 1, GREEN);
 					DrawCylinder(center, 0.1, 0.5, 5, 6, DARKGREEN);
 					break;
 				case HILL:
@@ -132,7 +134,7 @@ void loop(void)
     BeginDrawing();
 	
 		ClearBackground(RAYWHITE);
-		DrawTexture(texture, 0, 0, PINK);
+		DrawTexture(gTexture, 0, 0, PINK);
 		
 			BeginMode3D(gCamera);
 			
@@ -164,9 +166,9 @@ void loop(void)
 
 void load(void) {
 	Image cellular = GenImageCellular(kWidth, kHeight, 60);
-	texture = LoadTextureFromImage(cellular);
-	chunk_generate(&gChunk, 0);
-	
+	gTexture = LoadTextureFromImage(cellular);
+	chunk_generate_root(&gChunk);
+
 	gCamera.position = (Vector3){ 0.0f, 25.0f, 10.0f };
     gCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
     gCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
