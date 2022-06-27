@@ -2,8 +2,10 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
-
 #include <stdio.h>
+
+#include "common.h"
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Tilegen Constants
@@ -62,18 +64,26 @@ int kRandomSet[TILE_COUNT] = {
 // RNG utils
 ///////////////////////////////////////////////////////////////////////////////
 
+// uint32_t scramble_north(uint32_t x) {
+    // x = ((x >> 16) ^ x) * 0x45d9f3b;
+    // x = ((x >> 16) ^ x) * 0x45d9f3b;
+    // x = (x >> 16) ^ x;
+    // return x;
+// }
+
+// uint32_t scramble_south(uint32_t x) {
+    // x = ((x >> 16) ^ x) * 0x119de1f3u;
+    // x = ((x >> 16) ^ x) * 0x119de1f3u;
+    // x = (x >> 16) ^ x;
+    // return x;
+// }
+
 uint32_t scramble_north(uint32_t x) {
-    x = ((x >> 16) ^ x) * 0x45d9f3b;
-    x = ((x >> 16) ^ x) * 0x45d9f3b;
-    x = (x >> 16) ^ x;
-    return x;
+    return x + 13337;
 }
 
 uint32_t scramble_south(uint32_t x) {
-    x = ((x >> 16) ^ x) * 0x119de1f3u;
-    x = ((x >> 16) ^ x) * 0x119de1f3u;
-    x = (x >> 16) ^ x;
-    return x;
+    return x - 13337;
 }
 
 uint32_t scramble_west(uint32_t x) {
@@ -214,6 +224,29 @@ static void create_corners(struct TileChunk* chunk) {
 			tile_option_select(kRandomSet, chunk->anchor_se.seed));
 }
 
+static bool linear_create(struct TileChunk* chunk, int pos, int next, bool fix) {
+	ASSERT(0 <= 0 && pos < TILE_CHUNK_ARRAY_SIZE);
+	if (fix) {
+		ASSERT(0 <= next && next < TILE_CHUNK_ARRAY_SIZE);
+	}
+
+	if (chunk->data[pos] == TILE_NULL) {
+		chunk->data[pos] = tile_generate(chunk, ROW(pos), COL(pos));
+	}
+	
+	// See if removing the next tile in the line allows this tile to generate.
+	if (fix && !tile_valid(chunk, ROW(pos), COL(pos))) {
+		enum Tile original_next = chunk->data[next];
+		chunk->data[next] = TILE_NULL;
+		chunk->data[pos] = tile_generate(chunk, ROW(pos), COL(pos));
+		// If it doesn't, restore the next tile.
+		if (chunk->data[pos] == TILE_NULL) {
+			chunk->data[next] = original_next;
+		}
+	}
+	return chunk->data[pos] != TILE_NULL;
+}
+
 // Create missing tiles in a line from the given start point to the end of the line.
 //
 // If `fix` is set, will attempt to fix invalid terrain.
@@ -221,30 +254,11 @@ static void create_corners(struct TileChunk* chunk) {
 // Returns true if all terrain in the line is valid.
 static bool create_line(struct TileChunk* chunk, int start, int step, bool fix) {
 	bool good = true;
+	
 	for (int i = 0; i < TILE_CHUNK_SIZE; i++) {
 		int pos = start + i * step;
-		
-		if (pos < 0 || TILE_CHUNK_ARRAY_SIZE <= pos) {
-			printf("Pos out of bounds\n");
-			exit(EXIT_FAILURE);
-		}
-		
-		if (chunk->data[pos] == TILE_NULL) {
-			chunk->data[pos] = tile_generate(chunk, ROW(pos), COL(pos));
-		}
-		// See if removing the next tile in the line allows this tile to generate.
-		if (fix && !tile_valid(chunk, ROW(pos), COL(pos))
-				&& 0 <= pos + 2 * step && pos + 2 * step < TILE_CHUNK_ARRAY_SIZE) {
-			enum Tile original_next = chunk->data[pos + step];
-			chunk->data[pos + step] = TILE_NULL;
-			chunk->data[pos] = tile_generate(chunk, ROW(pos), COL(pos));
-			if (chunk->data[pos] == TILE_NULL) {
-				chunk->data[pos + step] = original_next;
-			}
-		}
-		if (chunk->data[pos] == TILE_NULL) {
-			good = false;
-		}
+		good &= linear_create(chunk, pos, pos + step,
+				fix && i != 0 && i < TILE_CHUNK_SIZE - 2);
 	}
 	return good;
 }
@@ -293,17 +307,27 @@ static void create_edges(struct TileChunk* chunk) {
 }
 
 static void fix_row(struct TileChunk* chunk, int row) {
-	create_line(chunk, row * TILE_CHUNK_SIZE, 1, true);
+	if (row % 2 == 0) {
+		create_line(chunk, row * TILE_CHUNK_SIZE, 1, true);
+	}
 	create_line(chunk, row * TILE_CHUNK_SIZE + TILE_CHUNK_SIZE - 1, -1, true);
+	if (row % 2 != 0) {
+		create_line(chunk, row * TILE_CHUNK_SIZE, 1, true);
+	}
 }
 
 static void fix_col(struct TileChunk* chunk, int col) {
-	create_line(chunk, col, TILE_CHUNK_SIZE, true);
+	if (col % 2 == 0) {
+		create_line(chunk, col, TILE_CHUNK_SIZE, true);
+	}
 	create_line(
 			chunk,
 			TILE_CHUNK_ARRAY_SIZE - TILE_CHUNK_SIZE + col,
 			-TILE_CHUNK_SIZE,
 			true);
+	if (col % 2 != 0) {
+		create_line(chunk, col, TILE_CHUNK_SIZE, true);
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -345,13 +369,42 @@ static int chunk_iterate(struct TileChunk* chunk, bool last) {
 	return invalid_count;
 }
 
+static void chunk_remove_dead_squares(struct TileChunk* chunk) {
+	for (int row = 1; row < TILE_CHUNK_SIZE - 2; row++) {
+		for (int col = 1; col < TILE_CHUNK_SIZE - 2; col++) {
+			int count = 0;
+			if (chunk_get(chunk, row, col) == TILE_NULL) {
+				count++;
+			}
+			if (chunk_get(chunk, row + 1, col) == TILE_NULL) {
+				count++;
+			}
+			if (chunk_get(chunk, row, col + 1) == TILE_NULL) {
+				count++;
+			}
+			if (chunk_get(chunk, row + 1, col + 1) == TILE_NULL) {
+				count++;
+			}
+			if (count >= 2) {
+				chunk_set(chunk, row, col, TILE_NULL);
+				chunk_set(chunk, row + 1, col, TILE_NULL);
+				chunk_set(chunk, row, col + 1, TILE_NULL);
+				chunk_set(chunk, row + 1, col + 1, TILE_NULL);
+			}
+		}
+	}
+}
+
 static void chunk_fix(struct TileChunk* chunk) {
-	for (int i = 0; i < 3; i++) {
-		for (int row = 0; row < TILE_CHUNK_SIZE; row++) {
+	for (int i = 0; i < 10; i++) {
+		for (int row = 1; row < TILE_CHUNK_SIZE - 1; row++) {
 			fix_row(chunk, row);
 		}
-		for (int col = 0; col < TILE_CHUNK_SIZE; col++) {
+		for (int col = 1; col < TILE_CHUNK_SIZE - 1; col++) {
 			fix_col(chunk, col);
+		}
+		if (i % 4 == 1) {
+			chunk_remove_dead_squares(chunk);
 		}
 	}
 }

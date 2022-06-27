@@ -15,6 +15,8 @@ const int kHeight = 600;
 Camera gCamera = { 0 };
 Texture2D gTexture = { 0 };
 struct TileChunk gChunk = { 0 };
+struct TileChunk gLastChunk = { 0 };
+Vector3 gLastChunkPos = { 33, 0, 0 };
 
 void draw_centered_grid(Vector3 pos) {
 	static const int kCount = 5;
@@ -74,12 +76,16 @@ void draw_outlined_cube(Vector3 center, float w, float h, float l, Color color) 
 	DrawLine3D(sw, nw, BLACK);
 }
 
-void draw_chunk() {
+void draw_chunk(struct TileChunk* chunk, Vector3 position) {
 	for (int row = 0; row < TILE_CHUNK_SIZE; row++) {
 		for (int col = 0; col < TILE_CHUNK_SIZE; col++) {
-			Vector3 center = {col - 16, 0, row - 16};
+			Vector3 center = {
+				position.x + col - 16,
+				position.y + 0,
+				position.z + row - 16,
+			};
 			
-			switch (chunk_get(&gChunk, row, col)) {
+			switch (chunk_get(chunk, row, col)) {
 				case DEEP:
 					draw_outlined_cube(center, 1, 1, 1, DARKBLUE);
 					break;
@@ -111,9 +117,40 @@ void draw_chunk() {
 	}
 }
 
-void loop(void)
-{
-	const float kSpeed = 0.20f;
+void recenter(void) {
+	const float kChunkGraphicSize = 33;
+	if (gCamera.target.z > kChunkGraphicSize / 2) {
+		gLastChunk = gChunk;
+		chunk_south(&gLastChunk, &gChunk);
+		gCamera.target.z -= kChunkGraphicSize;
+		gCamera.position.z -= kChunkGraphicSize;
+		gLastChunkPos = (Vector3){0,0,-33};
+	}
+	if (gCamera.target.z < -kChunkGraphicSize / 2) {
+		gLastChunk = gChunk;
+		chunk_north(&gLastChunk, &gChunk);
+		gCamera.target.z += kChunkGraphicSize;
+		gCamera.position.z += kChunkGraphicSize;
+		gLastChunkPos = (Vector3){0,0,33};
+	}
+	if (gCamera.target.x > kChunkGraphicSize / 2) {
+		gLastChunk = gChunk;
+		chunk_east(&gLastChunk, &gChunk);
+		gCamera.target.x -= kChunkGraphicSize;
+		gCamera.position.x -= kChunkGraphicSize;
+		gLastChunkPos = (Vector3){-33,0,0};
+	}
+	if (gCamera.target.x < -kChunkGraphicSize / 2) {
+		gLastChunk = gChunk;
+		chunk_west(&gLastChunk, &gChunk);
+		gCamera.target.x += kChunkGraphicSize;
+		gCamera.position.x += kChunkGraphicSize;
+		gLastChunkPos = (Vector3){33,0,0};
+	}
+}
+
+void loop(void) {
+	const float kSpeed = 0.40f;
 	if (IsKeyDown(KEY_RIGHT)) {
 		gCamera.position.x += kSpeed;
 		gCamera.target.x += kSpeed;
@@ -130,26 +167,7 @@ void loop(void)
 		gCamera.position.z += kSpeed;
 		gCamera.target.z += kSpeed;
 	}
-	if (IsKeyPressed(KEY_W)) {
-		struct TileChunk nc;
-		chunk_north(&gChunk, &nc);
-		gChunk = nc;
-	}
-	if (IsKeyPressed(KEY_A)) {
-		struct TileChunk nc;
-		chunk_west(&gChunk, &nc);
-		gChunk = nc;
-	}
-	if (IsKeyPressed(KEY_S)) {
-		struct TileChunk nc;
-		chunk_south(&gChunk, &nc);
-		gChunk = nc;
-	}
-	if (IsKeyPressed(KEY_D)) {
-		struct TileChunk nc;
-		chunk_east(&gChunk, &nc);
-		gChunk = nc;
-	}
+	recenter();
 	
 
     BeginDrawing();
@@ -172,11 +190,11 @@ void loop(void)
 
 				// DrawCylinder((Vector3){1.0f, 0.0f, -4.0f}, 0.0f, 1.5f, 3.0f, 8, GOLD);
 				// DrawCylinderWires((Vector3){1.0f, 0.0f, -4.0f}, 0.0f, 1.5f, 3.0f, 8, PINK);
-				
-				
+
 				// draw_centered_grid(gCamera.target);
 				// draw_color_splotches(gCamera.target);
-				draw_chunk();
+				draw_chunk(&gChunk, (Vector3){0,0,0});
+				draw_chunk(&gLastChunk, gLastChunkPos);
 			
 			EndMode3D();
 		
@@ -189,8 +207,9 @@ void load(void) {
 	Image cellular = GenImageCellular(kWidth, kHeight, 60);
 	gTexture = LoadTextureFromImage(cellular);
 	chunk_generate_root(&gChunk);
+	chunk_east(&gChunk, &gLastChunk);
 
-	gCamera.position = (Vector3){ 0.0f, 45.0f, 10.0f };
+	gCamera.position = (Vector3){ 0.0f, 30.0f, 8.0f };
     gCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
     gCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     gCamera.fovy = 45.0f;
