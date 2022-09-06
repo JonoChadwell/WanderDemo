@@ -8,3 +8,6 @@
 	} \
 } while (0);
 
+#define JMAX(x, y) ( ((x) > (y)) ? (x) : (y) )
+
+#define JMIN(x, y) ( ((x) < (y)) ? (x) : (y) )

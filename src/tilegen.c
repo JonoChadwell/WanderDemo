@@ -127,9 +127,9 @@ static void chunk_set(struct TileChunk* chunk, int row, int col, enum Tile value
 	}
 }
 
-static void chunk_clear(struct TileChunk* chunk) {
+static void chunk_clear(struct TileChunk* chunk, enum Tile value) {
 	for (int i = 0; i < TILE_CHUNK_ARRAY_SIZE; i++) {
-		chunk->data[i] = TILE_NULL;
+		chunk->data[i] = value;
 	}
 }
 
@@ -419,7 +419,7 @@ static void chunk_generate(struct TileChunk* chunk) {
 	uint32_t se = chunk->anchor_se.seed;
 
 	// Start with the outside.
-	chunk_clear(chunk);
+	chunk_clear(chunk, TILE_NULL);
 	create_corners(chunk);
 	create_edges(chunk);
 	
@@ -435,7 +435,6 @@ static void chunk_generate(struct TileChunk* chunk) {
 		fix_col(chunk, rand() % (TILE_CHUNK_SIZE - 2) + 1);
 	}
 	
-
 	// Solve for the rest of the map.
 	for (int i = kIterations; i > 0; --i) {
 		int invalid = chunk_iterate(chunk, i == 1);
