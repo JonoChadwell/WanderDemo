@@ -4,8 +4,6 @@ SET PATH=%PATH%;C:\emsdk;C:\Program Files (x86)\GnuWin32\bin;
 
 call emsdk_env.bat
 
-make.exe buildall
+make.exe wander
 
 pause
-
-compile.bat
