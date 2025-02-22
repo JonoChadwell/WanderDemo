@@ -5,9 +5,9 @@ SRCFILES = noise wander_main tilegen vector_math
 info:
 	@echo Common targets: wander, clean
 
-build/%.o: src/%.c src/*.h
+build/%.o: src/%.cc src/*.h
 	@if not exist build mkdir build
-	emcc $(CARGS) -c $< -o $@
+	em++ $(CARGS) -c $< -o $@
 
 wander: $(addprefix build/, $(addsuffix .o, $(SRCFILES)))
-	emcc $(CARGS) $(LINKARGS) $? C:\raylib\src\libraylib.a --shell-file C:\emsdk\upstream\emscripten\src\shell.html  -o build\wander_demo.html
+	em++ $(CARGS) $(LINKARGS) $? C:\raylib\src\libraylib.a --shell-file C:\emsdk\upstream\emscripten\src\shell.html  -o build\wander_demo.html

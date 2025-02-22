@@ -1,13 +1,14 @@
-#include <stdbool.h>
-#include <stdint.h>
+#pragma once
 
+#include <stdint.h>
+#include <array>
 
 ///////////////////////////////////////////////////////////////////////////////
 // Definitions
 ///////////////////////////////////////////////////////////////////////////////
 
-#define TILE_CHUNK_SIZE 32
-#define TILE_CHUNK_ARRAY_SIZE ( TILE_CHUNK_SIZE * TILE_CHUNK_SIZE )
+constexpr int kChunkSize = 32;
+constexpr int kChunkArraySize = kChunkSize * kChunkSize;
 
 enum Tile {
 	TILE_NULL = 0,
@@ -29,7 +30,7 @@ struct TileChunk {
 	struct Anchor anchor_se;
 	struct Anchor anchor_nw;
 	struct Anchor anchor_sw;
-	enum Tile data[TILE_CHUNK_ARRAY_SIZE];
+	std::array<Tile, kChunkArraySize> data;
 };
 
 

@@ -1,8 +1,7 @@
 #include "tilegen.h"
+#include <cstdlib>
+#include <array>
 
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdio.h>
 
 #include "common.h"
 
@@ -12,52 +11,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 int kTileWeightMatrix[TILE_COUNT][TILE_COUNT] = {
-	[TILE_NULL] = {
-		[DEEP] = 1,
-		[WATER] = 1,
-		[SAND] = 1,
-		[GRASS] = 1,
-		[TREE] = 1,
-		[HILL] = 1,
-	},
-	[DEEP] = {
-		[DEEP] = 2,
-		[WATER] = 1,
-	},
-	[WATER] = {
-		[DEEP] = 1,
-		[WATER] = 1,
-		[SAND] = 1,
-	},
-	[SAND] = {
-		[WATER] = 1,
-		[SAND] = 1,
-		[GRASS] = 1,
-	},
-	[GRASS] = {
-		[SAND] = 1,
-		[GRASS] = 3,
-		[TREE] = 1,
-		[HILL] = 1,
-	},
-	[TREE] = {
-		[TREE] = 1,
-		[GRASS] = 1,
-	},
-	[HILL] = {
-		[HILL] = 3,
-		[GRASS] = 1,
-	},
+	{1, 1, 1, 1, 1, 1, 1}, // TILE_NULL
+	{0, 2, 1, 0, 0, 0, 0}, // DEEP
+	{0, 1, 1, 1, 0, 0, 0}, // WATER
+	{0, 0, 1, 1, 1, 0, 0}, // SAND
+	{0, 0, 0, 1, 3, 1, 1}, // GRASS
+	{0, 0, 0, 0, 1, 1, 0}, // TREE
+	{0, 0, 0, 0, 1, 0, 3}, // HILL
 };
 
-int kRandomSet[TILE_COUNT] = {
-	[DEEP] = 3,
-	[WATER] = 2,
-	[SAND] = 2,
-	[GRASS] = 3,
-	[TREE] = 2,
-	[HILL] = 2,
-};
+int kRandomSet[TILE_COUNT] = {0, 3, 2, 2, 3, 2, 2}; // NULL, DEEP, WATER, SAND, GRASS, TREE, HILL
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -104,31 +67,31 @@ uint32_t seed_blend(uint32_t a, uint32_t b) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static inline int ROW(int v) {
-	return v / TILE_CHUNK_SIZE;
+	return v / kChunkSize;
 }
 
 static inline int COL(int v) {
-	return v % TILE_CHUNK_SIZE;
+	return v % kChunkSize;
 }
 
 enum Tile chunk_get(struct TileChunk* chunk, int row, int col) {
-	if (0 <= row && row < TILE_CHUNK_SIZE
-	 && 0 <= col && col < TILE_CHUNK_SIZE) {
-		return chunk->data[row * TILE_CHUNK_SIZE + col];
+	if (0 <= row && row < kChunkSize
+	 && 0 <= col && col < kChunkSize) {
+		return chunk->data[row * kChunkSize + col];
 	}
 	return TILE_NULL;
 }
 
 static void chunk_set(struct TileChunk* chunk, int row, int col, enum Tile value) {
-	if (0 <= row && row < TILE_CHUNK_SIZE
-	 && 0 <= col && col < TILE_CHUNK_SIZE) {
-		chunk->data[row * TILE_CHUNK_SIZE + col] = value;
+	if (0 <= row && row < kChunkSize
+	 && 0 <= col && col < kChunkSize) {
+		chunk->data[row * kChunkSize + col] = value;
 		
 	}
 }
 
 static void chunk_clear(struct TileChunk* chunk, enum Tile value) {
-	for (int i = 0; i < TILE_CHUNK_ARRAY_SIZE; i++) {
+	for (int i = 0; i < kChunkArraySize; i++) {
 		chunk->data[i] = value;
 	}
 }
@@ -138,7 +101,7 @@ static void chunk_clear(struct TileChunk* chunk, enum Tile value) {
 // Tile Generation
 ///////////////////////////////////////////////////////////////////////////////
 
-static int tile_option_sum(int options[static TILE_COUNT]) {
+static int tile_option_sum(int* options) {
 	int sum = 0;
 	for (int i = 0; i < TILE_COUNT; i++) {
 		sum += options[i];
@@ -146,7 +109,7 @@ static int tile_option_sum(int options[static TILE_COUNT]) {
 	return sum;
 }
 
-static enum Tile tile_option_select(int options[static TILE_COUNT], uint32_t value) {
+static enum Tile tile_option_select(int* options, uint32_t value) {
 	int sum = tile_option_sum(options);
 	int selection = sum == 0 ? 0 : (int) (value % sum);
 	for (int i = 0; i < TILE_COUNT; i++) {
@@ -158,11 +121,11 @@ static enum Tile tile_option_select(int options[static TILE_COUNT], uint32_t val
 	return TILE_NULL;
 }
 
-static enum Tile tile_option_random(int options[static TILE_COUNT]) {
+static enum Tile tile_option_random(int* options) {
 	return tile_option_select(options, rand());
 }
 
-static void tile_apply_adjacency(int options[static TILE_COUNT], enum Tile adjacent) {
+static void tile_apply_adjacency(int* options, enum Tile adjacent) {
 	for (int i = 0; i < TILE_COUNT; i++) {
 		options[i] *= kTileWeightMatrix[adjacent][i];
 	}
@@ -192,14 +155,9 @@ enum Tile tile_generate(struct TileChunk* chunk, int row, int col) {
 }
 
 static bool tile_valid(struct TileChunk* chunk, int row, int col) {
-	int options[TILE_COUNT] = {
-		[DEEP] = 1,
-		[WATER] = 1,
-		[SAND] = 1,
-		[GRASS] = 1,
-		[TREE] = 1,
-		[HILL] = 1,
-	};
+	int options[TILE_COUNT] = {1, 1, 1, 1, 1, 1, 1}; // Initialize all to 1 except TILE_NULL
+	options[TILE_NULL] = 0;
+	
 	tile_apply_adjacency(options, chunk_get(chunk, row + 1, col));
 	tile_apply_adjacency(options, chunk_get(chunk, row - 1, col));
 	tile_apply_adjacency(options, chunk_get(chunk, row, col + 1));
@@ -216,18 +174,18 @@ static bool tile_valid(struct TileChunk* chunk, int row, int col) {
 static void create_corners(struct TileChunk* chunk) {
 	chunk_set(chunk, 0, 0,
 			tile_option_select(kRandomSet, chunk->anchor_nw.seed));
-	chunk_set(chunk, 0, TILE_CHUNK_SIZE - 1,
+	chunk_set(chunk, 0, kChunkSize - 1,
 			tile_option_select(kRandomSet, chunk->anchor_ne.seed));
-	chunk_set(chunk, TILE_CHUNK_SIZE - 1, 0,
+	chunk_set(chunk, kChunkSize - 1, 0,
 			tile_option_select(kRandomSet, chunk->anchor_sw.seed));
-	chunk_set(chunk, TILE_CHUNK_SIZE - 1, TILE_CHUNK_SIZE - 1,
+	chunk_set(chunk, kChunkSize - 1, kChunkSize - 1,
 			tile_option_select(kRandomSet, chunk->anchor_se.seed));
 }
 
 static bool linear_create(struct TileChunk* chunk, int pos, int next, bool fix) {
-	ASSERT(0 <= 0 && pos < TILE_CHUNK_ARRAY_SIZE);
+	ASSERT(0 <= 0 && pos < kChunkArraySize);
 	if (fix) {
-		ASSERT(0 <= next && next < TILE_CHUNK_ARRAY_SIZE);
+		ASSERT(0 <= next && next < kChunkArraySize);
 	}
 
 	if (chunk->data[pos] == TILE_NULL) {
@@ -255,10 +213,10 @@ static bool linear_create(struct TileChunk* chunk, int pos, int next, bool fix) 
 static bool create_line(struct TileChunk* chunk, int start, int step, bool fix) {
 	bool good = true;
 	
-	for (int i = 0; i < TILE_CHUNK_SIZE; i++) {
+	for (int i = 0; i < kChunkSize; i++) {
 		int pos = start + i * step;
 		good &= linear_create(chunk, pos, pos + step,
-				fix && i != 0 && i < TILE_CHUNK_SIZE - 2);
+				fix && i != 0 && i < kChunkSize - 2);
 	}
 	return good;
 }
@@ -266,12 +224,12 @@ static bool create_line(struct TileChunk* chunk, int start, int step, bool fix) 
 static void create_row(struct TileChunk* chunk, int row, bool backwards) {
 	const int kMaxAttempts = 1000;
 	for (int i = 0; i < kMaxAttempts; ++i) {
-		if (create_line(chunk, row * TILE_CHUNK_SIZE, 1, false)) {
+		if (create_line(chunk, row * kChunkSize, 1, false)) {
 			break;
 		}
 		if (create_line(
 				chunk,
-				(row + 1) * TILE_CHUNK_SIZE - 1,
+				(row + 1) * kChunkSize - 1,
 				-1,
 				true)) {
 			break;
@@ -282,13 +240,13 @@ static void create_row(struct TileChunk* chunk, int row, bool backwards) {
 static void create_col(struct TileChunk* chunk, int col, bool backwards) {
 	const int kMaxAttempts = 1000;
 	for (int i = 0; i < kMaxAttempts; ++i) {
-		if (create_line(chunk, col, TILE_CHUNK_SIZE, false)) {
+		if (create_line(chunk, col, kChunkSize, false)) {
 			break;
 		}
 		if (create_line(
 				chunk,
-				TILE_CHUNK_ARRAY_SIZE - TILE_CHUNK_SIZE + col,
-				-TILE_CHUNK_SIZE,
+				kChunkArraySize - kChunkSize + col,
+				-kChunkSize,
 				true)) {
 			break;
 		}
@@ -299,34 +257,34 @@ static void create_edges(struct TileChunk* chunk) {
 	srand(seed_blend(chunk->anchor_nw.seed, chunk->anchor_ne.seed));
 	create_row(chunk, 0, false);
 	srand(seed_blend(chunk->anchor_sw.seed, chunk->anchor_se.seed));
-	create_row(chunk, TILE_CHUNK_SIZE - 1, false);
+	create_row(chunk, kChunkSize - 1, false);
 	srand(seed_blend(chunk->anchor_nw.seed, chunk->anchor_sw.seed));
 	create_col(chunk, 0, false);
 	srand(seed_blend(chunk->anchor_ne.seed, chunk->anchor_se.seed));
-	create_col(chunk, TILE_CHUNK_SIZE - 1, false);
+	create_col(chunk, kChunkSize - 1, false);
 }
 
 static void fix_row(struct TileChunk* chunk, int row) {
 	if (row % 2 == 0) {
-		create_line(chunk, row * TILE_CHUNK_SIZE, 1, true);
+		create_line(chunk, row * kChunkSize, 1, true);
 	}
-	create_line(chunk, row * TILE_CHUNK_SIZE + TILE_CHUNK_SIZE - 1, -1, true);
+	create_line(chunk, row * kChunkSize + kChunkSize - 1, -1, true);
 	if (row % 2 != 0) {
-		create_line(chunk, row * TILE_CHUNK_SIZE, 1, true);
+		create_line(chunk, row * kChunkSize, 1, true);
 	}
 }
 
 static void fix_col(struct TileChunk* chunk, int col) {
 	if (col % 2 == 0) {
-		create_line(chunk, col, TILE_CHUNK_SIZE, true);
+		create_line(chunk, col, kChunkSize, true);
 	}
 	create_line(
 			chunk,
-			TILE_CHUNK_ARRAY_SIZE - TILE_CHUNK_SIZE + col,
-			-TILE_CHUNK_SIZE,
+			kChunkArraySize - kChunkSize + col,
+			-kChunkSize,
 			true);
 	if (col % 2 != 0) {
-		create_line(chunk, col, TILE_CHUNK_SIZE, true);
+		create_line(chunk, col, kChunkSize, true);
 	}
 }
 
@@ -336,14 +294,14 @@ static void fix_col(struct TileChunk* chunk, int col) {
 
 // NOT THREAD SAFE.
 static int chunk_iterate(struct TileChunk* chunk, bool last) {
-	static int invalid_list[TILE_CHUNK_ARRAY_SIZE] = { 0 };
-	static enum Tile invalid_set_to[TILE_CHUNK_ARRAY_SIZE] = { 0 };
+	static int invalid_list[kChunkArraySize] = { 0 };
+	static enum Tile invalid_set_to[kChunkArraySize];
 	int invalid_count = 0;
 	
-	for (int row = 1; row < TILE_CHUNK_SIZE - 1; row++) {
-		for (int col = 1; col < TILE_CHUNK_SIZE - 1; col++) {
+	for (int row = 1; row < kChunkSize - 1; row++) {
+		for (int col = 1; col < kChunkSize - 1; col++) {
 			if (!tile_valid(chunk, row, col)) {
-				invalid_list[invalid_count++] = row * TILE_CHUNK_SIZE + col;
+				invalid_list[invalid_count++] = row * kChunkSize + col;
 			}
 		}
 	}
@@ -370,8 +328,8 @@ static int chunk_iterate(struct TileChunk* chunk, bool last) {
 }
 
 static void chunk_remove_dead_squares(struct TileChunk* chunk) {
-	for (int row = 1; row < TILE_CHUNK_SIZE - 2; row++) {
-		for (int col = 1; col < TILE_CHUNK_SIZE - 2; col++) {
+	for (int row = 1; row < kChunkSize - 2; row++) {
+		for (int col = 1; col < kChunkSize - 2; col++) {
 			int count = 0;
 			if (chunk_get(chunk, row, col) == TILE_NULL) {
 				count++;
@@ -397,10 +355,10 @@ static void chunk_remove_dead_squares(struct TileChunk* chunk) {
 
 static void chunk_fix(struct TileChunk* chunk) {
 	for (int i = 0; i < 10; i++) {
-		for (int row = 1; row < TILE_CHUNK_SIZE - 1; row++) {
+		for (int row = 1; row < kChunkSize - 1; row++) {
 			fix_row(chunk, row);
 		}
-		for (int col = 1; col < TILE_CHUNK_SIZE - 1; col++) {
+		for (int col = 1; col < kChunkSize - 1; col++) {
 			fix_col(chunk, col);
 		}
 		if (i % 4 == 1) {
@@ -428,11 +386,11 @@ static void chunk_generate(struct TileChunk* chunk) {
 	// Generate some random strips.
 	int num_rows = rand() % kMaxStrips;
 	for (int i = 0; i < num_rows; ++i) {
-		fix_row(chunk, rand() % (TILE_CHUNK_SIZE - 2) + 1);
+		fix_row(chunk, rand() % (kChunkSize - 2) + 1);
 	}
 	int num_cols = rand() % kMaxStrips;
 	for (int i = 0; i < num_cols; ++i) {
-		fix_col(chunk, rand() % (TILE_CHUNK_SIZE - 2) + 1);
+		fix_col(chunk, rand() % (kChunkSize - 2) + 1);
 	}
 	
 	// Solve for the rest of the map.

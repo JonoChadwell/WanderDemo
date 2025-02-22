@@ -2,36 +2,40 @@
 #include <raymath.h>
 #include <emscripten/emscripten.h>
 
-#include <math.h>
-#include <stdbool.h>
-#include <stdio.h>
+#include <cmath>
+#include <cstdio>
+#include <vector>
+#include <memory>
 
 #include "common.h"
 #include "noise.h"
 #include "tilegen.h"
 #include "vector_math.h"
 
+#include <vector>
+
+std::vector<int> test_vector;
 
 const int kWidth = 800;
 const int kHeight = 600;
 
-Camera gCamera = { 0 };
-Texture2D gTexture = { 0 };
-struct TileChunk gChunk = { 0 };
-struct TileChunk gLastChunk = { 0 };
-Vector3 gLastChunkPos = { 33, 0, 0 };
+Camera gCamera{};
+Texture2D gTexture{};
+TileChunk gChunk{};
+TileChunk gLastChunk{};
+Vector3 gLastChunkPos{ 33, 0, 0 };
 
-Vector3 gCharacterPos = { 0, 1.2, 0 };
+Vector3 gCharacterPos{ 0, 1.2f, 0 };
 int gBreathCharge = 0;
 
-void draw_centered_grid(Vector3 pos) {
+void draw_centered_grid(const Vector3& pos) {
 	static const int kCount = 5;
-	static const double kSpacing = 1.0;
+	static const float kSpacing = 1.0f;
 	static const Color kColor = GRAY;
 
-	double x = round(pos.x);
-	double y = pos.y;
-	double z = round(pos.z);
+	float x = std::round(pos.x);
+	float y = pos.y;
+	float z = std::round(pos.z);
 	for (int row = -kCount; row <= kCount; row++) {
 		Vector3 start = {x + row * kSpacing, y, z - kCount * kSpacing};
 		Vector3 end = {x + row * kSpacing, y, z + kCount * kSpacing};
@@ -44,47 +48,47 @@ void draw_centered_grid(Vector3 pos) {
 	}
 }
 
-void draw_color_splotches(Vector3 pos) {
-	static const int kCount = 5;
-	static const double kSpacing = 1.0;
-	static const double kRadius = 0.4;
-	static const double kNoiseScale = 0.1;
+void draw_color_splotches(const Vector3& pos) {
+	constexpr int kCount = 5;
+	constexpr float kSpacing = 1.0f;
+	constexpr float kRadius = 0.4f;
+	constexpr float kNoiseScale = 0.1f;
 
-	double x = round(pos.x);
-	double y = pos.y;
-	double z = round(pos.z);
+	float x = std::round(pos.x);
+	float y = pos.y;
+	float z = std::round(pos.z);
 	
 	for (int row = -kCount; row <= kCount; row++) {
 		for (int col = -kCount; col <= kCount; col++) {
 			Vector3 center = {x + row * kSpacing, y, z + col * kSpacing};
-			double noiseVal = noise(center.x * kNoiseScale, center.z * kNoiseScale);
+			float noiseVal = noise(center.x * kNoiseScale, center.z * kNoiseScale);
 			Color color = {
-				.r = noiseVal > 0 ? 0 : (char) (noiseVal * -255),
-				.g = noiseVal < 0 ? 0 : (char) (noiseVal * 255), 
-				.b = 0,//0,
-				.a = 255,
+				static_cast<unsigned char>(noiseVal > 0 ? 0 : (noiseVal * -255)),
+				static_cast<unsigned char>(noiseVal < 0 ? 0 : (noiseVal * 255)), 
+				0,
+				255,
 			};
 			
-			DrawCylinder(center, kRadius, kRadius, 0.01, 10, color);
+			DrawCylinder(center, kRadius, kRadius, 0.01f, 10, color);
 		}
 	}
 }
 
-void draw_outlined_cube(Vector3 center, float w, float h, float l, Color color) {
+void draw_outlined_cube(const Vector3& center, float w, float h, float l, Color color) {
 	DrawCube(center, w, h, l, color);
-	Vector3 nw = {center.x - w / 2, center.y + h / 2 + .01, center.z - l / 2};
-	Vector3 ne = {center.x - w / 2, center.y + h / 2 + .01, center.z + l / 2};
-	Vector3 sw = {center.x + w / 2, center.y + h / 2 + .01, center.z - l / 2};
-	Vector3 se = {center.x + w / 2, center.y + h / 2 + .01, center.z + l / 2};
+	Vector3 nw = {center.x - w / 2, center.y + h / 2 + .01f, center.z - l / 2};
+	Vector3 ne = {center.x - w / 2, center.y + h / 2 + .01f, center.z + l / 2};
+	Vector3 sw = {center.x + w / 2, center.y + h / 2 + .01f, center.z - l / 2};
+	Vector3 se = {center.x + w / 2, center.y + h / 2 + .01f, center.z + l / 2};
 	DrawLine3D(nw, ne, BLACK);
 	DrawLine3D(ne, se, BLACK);
 	DrawLine3D(se, sw, BLACK);
 	DrawLine3D(sw, nw, BLACK);
 }
 
-void draw_chunk(struct TileChunk* chunk, Vector3 position) {
-	for (int row = 0; row < TILE_CHUNK_SIZE; row++) {
-		for (int col = 0; col < TILE_CHUNK_SIZE; col++) {
+void draw_chunk(TileChunk* chunk, const Vector3& position) {
+	for (int row = 0; row < kChunkSize; row++) {
+		for (int col = 0; col < kChunkSize; col++) {
 			Vector3 center = {
 				position.x + col - 16,
 				position.y + 0,
@@ -99,35 +103,33 @@ void draw_chunk(struct TileChunk* chunk, Vector3 position) {
 					draw_outlined_cube(center, 1, 1, 1, BLUE);
 					break;
 				case SAND:
-					draw_outlined_cube(center, 1, 1.5, 1, BEIGE);
+					draw_outlined_cube(center, 1, 1.5f, 1, BEIGE);
 					break;
 				case GRASS:
 					draw_outlined_cube(center, 1, 2, 1, GREEN);
 					break;
 				case TREE:
 					draw_outlined_cube(center, 1, 2, 1, GREEN);
-					DrawCylinder(center, 0.1, 0.5, 5, 6, DARKGREEN);
+					DrawCylinder(center, 0.1f, 0.5f, 5, 6, DARKGREEN);
 					break;
 				case HILL:
 					draw_outlined_cube(center, 1, 4, 1, BROWN);
 					break;
 				case TILE_NULL:
-					draw_outlined_cube(center, 0.5, 0.5, 0.5, MAGENTA);
+					draw_outlined_cube(center, 0.5f, 0.5f, 0.5f, MAGENTA);
 					break;
 				default:
 					break;
 			}
-			
-			
 		}
 	}
 }
 
 void draw_character() {
-	DrawSphere(gCharacterPos, 1.0, PINK);
+	DrawSphere(gCharacterPos, 1.0f, PINK);
 }
 
-void recenter(void) {
+void recenter() {
 	const float kChunkGraphicSize = 33;
 	if (gCharacterPos.z > kChunkGraphicSize / 2) {
 		gLastChunk = gChunk;
@@ -135,7 +137,7 @@ void recenter(void) {
 		gCamera.target.z -= kChunkGraphicSize;
 		gCamera.position.z -= kChunkGraphicSize;
 		gCharacterPos.z -= kChunkGraphicSize;
-		gLastChunkPos = (Vector3){0,0,-33};
+		gLastChunkPos = Vector3{0,0,-33};
 	}
 	if (gCharacterPos.z < -kChunkGraphicSize / 2) {
 		gLastChunk = gChunk;
@@ -143,7 +145,7 @@ void recenter(void) {
 		gCamera.target.z += kChunkGraphicSize;
 		gCamera.position.z += kChunkGraphicSize;
 		gCharacterPos.z += kChunkGraphicSize;
-		gLastChunkPos = (Vector3){0,0,33};
+		gLastChunkPos = Vector3{0,0,33};
 	}
 	if (gCharacterPos.x > kChunkGraphicSize / 2) {
 		gLastChunk = gChunk;
@@ -151,7 +153,7 @@ void recenter(void) {
 		gCamera.target.x -= kChunkGraphicSize;
 		gCamera.position.x -= kChunkGraphicSize;
 		gCharacterPos.x -= kChunkGraphicSize;
-		gLastChunkPos = (Vector3){-33,0,0};
+		gLastChunkPos = Vector3{-33,0,0};
 	}
 	if (gCharacterPos.x < -kChunkGraphicSize / 2) {
 		gLastChunk = gChunk;
@@ -159,34 +161,30 @@ void recenter(void) {
 		gCamera.target.x += kChunkGraphicSize;
 		gCamera.position.x += kChunkGraphicSize;
 		gCharacterPos.x += kChunkGraphicSize;
-		gLastChunkPos = (Vector3){33,0,0};
+		gLastChunkPos = Vector3{33,0,0};
 	}
 }
 
-void handle_character_input(void) {
-	
-}
-
-void handle_input(void) {
+void handle_input() {
 	static const float kTargetMouseDistance = 2.0f;
 	static const float kCharacterSpeed = 0.2f;
 	
 	Vector2 mouse_pos_screen = GetMousePosition();
 	Ray mouse_pos_world = GetMouseRay(mouse_pos_screen, gCamera);
 	
-	double cast_amount = (gCharacterPos.y - mouse_pos_world.position.y)
+	float cast_amount = (gCharacterPos.y - mouse_pos_world.position.y)
 			/ mouse_pos_world.direction.y;
 	Vector3 mouse_pos_character_plane = {
-		.x = mouse_pos_world.position.x + cast_amount * mouse_pos_world.direction.x,
-		.z = mouse_pos_world.position.z + cast_amount * mouse_pos_world.direction.z,
-		.y = gCharacterPos.y,
+		mouse_pos_world.position.x + cast_amount * mouse_pos_world.direction.x,
+		gCharacterPos.y,
+		mouse_pos_world.position.z + cast_amount * mouse_pos_world.direction.z,
 	};
 	
 	// Check for fire charge / discharge
 	if (IsMouseButtonPressed(0)) {
 		gBreathCharge += 1;
 	} else {
-		gBreathCharge = JMAX(0, gBreathCharge - 2);
+		gBreathCharge = std::max(0, gBreathCharge - 2);
 	}
 	
 	// Move character.
@@ -227,10 +225,9 @@ void handle_input(void) {
 	// }
 }
 
-void loop(void) {
+void loop() {
 	handle_input();
 	recenter();
-	
 
     BeginDrawing();
 	
@@ -267,15 +264,15 @@ void loop(void) {
     EndDrawing();
 }
 
-void load(void) {
+void load() {
 	Image cellular = GenImageCellular(kWidth, kHeight, 60);
 	gTexture = LoadTextureFromImage(cellular);
 	chunk_generate_root(&gChunk);
 	chunk_east(&gChunk, &gLastChunk);
 
-	gCamera.position = (Vector3){ 0.0f, 15.0f, 20.0f };
-    gCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
-    gCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+	gCamera.position = Vector3{ 0.0f, 15.0f, 20.0f };
+    gCamera.target = Vector3{ 0.0f, 0.0f, 0.0f };
+    gCamera.up = Vector3{ 0.0f, 1.0f, 0.0f };
     gCamera.fovy = 45.0f;
     gCamera.projection = CAMERA_PERSPECTIVE;
 }
@@ -289,3 +286,4 @@ int main(int argc, char** argv) {
     CloseWindow();
     return 0;
 }
+

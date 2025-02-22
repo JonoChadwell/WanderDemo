@@ -1,3 +1,3 @@
 #pragma once
 
-double noise(double x, double y);
+float noise(float x, float y);

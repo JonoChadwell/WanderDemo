@@ -1,7 +1,8 @@
 // Stolen from wikipedia.
 // TODO - deal with licensing before publishing (if I ever get there)
 
-#include <math.h>
+#include "noise.h"
+#include <cmath>
 
 static double interpolate(double a0, double a1, double w) {
     /* // You may want clamping by inserting:
