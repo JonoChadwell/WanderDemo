@@ -4,6 +4,8 @@ SET PATH=%PATH%;C:\emsdk;C:\Program Files (x86)\GnuWin32\bin;
 
 call emsdk_env.bat
 
-make.exe wander
+make.exe music_wizard
 
 pause
+
+call compile.bat
